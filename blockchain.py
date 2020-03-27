@@ -1,26 +1,86 @@
 from functools import reduce
 import hashlib as hl
 from collections import OrderedDict
+import json
+import pickle
 
 #import files 
 from hash_util import has_string_256, hash_block
 
 MINING_REWARD = 10
-GENESIS_BLOCK = {
-		'previous_hash': '',
-		'index': 0,
-		'transactions': [],
-		'proof': 100
-	}
 
-blockchain = [GENESIS_BLOCK]
-open_transactions = []
 owner = 'Diego'
 participants = {
 	owner
 }
 
 waiting_for_input = True
+
+def load_data():
+	try:	
+		global blockchain		
+		global open_transactions
+
+		with open('blockchain.txt', mode='r') as f:
+			# using picles
+			# file_content = pickle.loads(f.read())
+			# global blockchain
+			# blockchain = file_content['chain']
+			# global open_transactions
+			# open_transactions = file_content['ot']
+
+			file_content = f.readlines()
+			if len(file_content) > 0:					
+				blockchain = json.loads(file_content[0][:-1])
+				blockchain = [{
+					'previous_hash': block['previous_hash'],
+					'index': block['index'],				
+					'proof': block['proof'],
+					'transactions': [
+						OrderedDict([
+							('sender', tx['sender']), 
+							('recipient', tx['recipient']),
+							('amount', tx['amount'])
+						]) for tx in block['transactions']
+					]
+				} for block in blockchain]
+
+			if len(file_content) > 1:				
+				open_transactions = json.loads(file_content[1])
+				open_transactions = [
+					OrderedDict([
+						('sender', tx['sender']), 
+						('recipient', tx['recipient']),
+						('amount', tx['amount'])
+					]) for tx in open_transactions
+				]
+	except (IOError, IndexError):
+		GENESIS_BLOCK = {
+			'previous_hash': '',
+			'index': 0,
+			'transactions': [],
+			'proof': 100
+		}
+
+		blockchain = [GENESIS_BLOCK]
+		open_transactions = []
+	finally:
+		print('Cleanup')
+
+def save_data():
+	try:
+		with open('blockchain.txt', mode='w') as f:
+			f.write(json.dumps(blockchain))
+			f.write('\n')
+			f.write(json.dumps(open_transactions))
+			# using picles
+			# save_data = {
+			# 	'chain': blockchain,
+			# 	'ot': open_transactions
+			# }
+			# f.write(pickle.dumps(save_data))
+	except IOError:
+		print('Saving failed!')
 
 
 def valid_proof(transactions, last_hash, proof):
@@ -65,6 +125,7 @@ def add_transaction(recipient, sender=owner, amount=1.0):
 		open_transactions.append(transaction)
 		participants.add(recipient)
 		participants.add(sender)
+		save_data()
 		return True
 
 	return False
@@ -88,7 +149,7 @@ def mine_block():
 		'transactions': copied_transactions,
 		'proof': proof
 	}	
-	blockchain.append(block)
+	blockchain.append(block)	
 	return True
 
 # get the amount of transaction from the user
@@ -122,11 +183,15 @@ def get_balance(participant):
 	tx_sender.append(open_tx_sender)
 	
 	# get the total of the amount sent
-	amount_sent = reduce(lambda tx_sum, tx_amount: tx_sum + sum(tx_amount) if len(tx_amount) > tx_sum + 0 else 0, tx_sender, 0)
+	amount_sent = reduce(lambda tx_sum, tx_amount: tx_sum + sum(tx_amount) 
+														if len(tx_amount) > 0 
+														else tx_sum + 0, tx_sender, 0)
 
 	# get the total of the amount a participant receive
 	tx_recipient = [[tx['amount'] for tx in block['transactions'] if tx['recipient'] == participant] for block in blockchain]
-	amount_received = reduce(lambda tx_sum, tx_amount: tx_sum + sum(tx_amount) if len(tx_amount) > 0 else tx_sum + 0, tx_recipient, 0)	
+	amount_received = reduce(lambda tx_sum, tx_amount: tx_sum + sum(tx_amount) 
+														if len(tx_amount) > 0 
+														else tx_sum + 0, tx_recipient, 0)	
 	
 	# return the balance
 	return amount_received - amount_sent
@@ -148,6 +213,9 @@ def verify_chain():
 
 def verify_transactions():	
 	return all([verify_transaction(tx) for tx in open_transactions])
+
+
+load_data()
 
 # Options to interact
 while waiting_for_input:
@@ -174,6 +242,7 @@ while waiting_for_input:
 		# print the blockchain
 		if mine_block():
 			open_transactions = []
+			save_data()
 	elif user_choice == '3':
 		# print the blockchain
 		print_blockchain()	
