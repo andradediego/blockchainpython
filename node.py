@@ -52,19 +52,27 @@ class Node:
 
 			elif user_choice == '2':
 				# print the blockchain
-				if not self.blockchain.mine_block():
-					print('Mining falied. Did you get no wallet?')
+				if self.blockchain == None:
+					print('You should get a wallet first')
+				else:
+					if not self.blockchain.mine_block():
+						print('Mining falied. Did you get no wallet?')
 					
 			elif user_choice == '3':
 				# print the blockchain
-				self.print_blockchain()	
+				if self.blockchain != None:
+					self.print_blockchain()
+				else: 
+					print('You should get a wallet first')
 
 			elif user_choice == '4':
-				
-				if Verification.verify_transactions(self.blockchain.get_open_transactions(), self.blockchain.get_balance):
-					print('All transactions are valid')
+				if self.blockchain != None:
+					if Verification.verify_transactions(self.blockchain.get_open_transactions(), self.blockchain.get_balance):
+						print('All transactions are valid')
+					else:
+						print('There are invalid transactions')
 				else:
-					print('There are invalid transactions')
+					print('You should get a wallet first')
 
 			elif user_choice == '5':				
 				self.wallet.create_keys()
@@ -83,12 +91,12 @@ class Node:
 				print('Input is invalid, please pick a value from the list!')
 			
 			print('-' * 20)
-			
-			if not Verification.verify_chain(self.blockchain.chain):
-				print('Invalid blockain!')
-				waiting_for_input = False
+			if self.blockchain != None:
+				if not Verification.verify_chain(self.blockchain.chain):
+					print('Invalid blockain!')
+					waiting_for_input = False
 
-			print('Balance of {}: {:6.2f}'.format(self.wallet.public_key, self.blockchain.get_balance()))
+				print('Balance of {}: {:6.2f}'.format(self.wallet.public_key, self.blockchain.get_balance()))
 		else:
 			print('User left!')
 
