@@ -4,10 +4,13 @@ import json
 import pickle
 
 #import files 
-from hash_util import hash_block
+from utility.hash_util import hash_block
+from utility.verification import Verification
 from block import Block
 from transaction import Transaction
-from verification import Verification
+from wallet import Wallet
+
+BLOCKCHAIN_FILE = 'files/blockchain.txt'
 
 MINING_REWARD = 10
 
@@ -33,7 +36,7 @@ class Blockchain:
 
 	def load_data(self):
 		try:
-			with open('blockchain.txt', mode='r') as f:
+			with open(BLOCKCHAIN_FILE, mode='r') as f:
 				file_content = f.readlines()
 							
 				blockchain = json.loads(file_content[0][:-1])
@@ -41,7 +44,7 @@ class Blockchain:
 					Block(
 						block['index'],
 						block['previous_hash'],
-						[Transaction(tx['sender'], tx['recipient'], tx['amount'])
+						[Transaction(tx['sender'], tx['recipient'], tx['recipient'], tx['amount'])
 							for tx in block['transactions']],
 						block['proof'],
 						block['timestamp']
@@ -50,7 +53,7 @@ class Blockchain:
 							
 				open_transactions = json.loads(file_content[1])
 				self.__open_transactions = [
-					Transaction(tx['sender'], tx['recipient'], tx['amount'])
+					Transaction(tx['sender'], tx['recipient'], tx['recipient'], tx['amount'])
 					for tx in open_transactions
 				]
 		except (IOError, IndexError):
@@ -61,19 +64,13 @@ class Blockchain:
 
 	def save_data(self):
 		try:
-			with open('blockchain.txt', mode='w') as f:
-				saveable_chain = [
-					block.__dict__ for block in [
-						Block(block_el.index, block_el.previous_hash, [
-							tx.__dict__ for tx in block_el.transactions
-						], block_el.proof, block_el.timestamp) for block_el in self.chain
-					]
-				]
-				
+			with open(BLOCKCHAIN_FILE, mode='w') as f:
+				saveable_chain = [block.__dict__ for block in [Block(block_el.index, block_el.previous_hash, [
+					tx.__dict__ for tx in block_el.transactions], block_el.proof, block_el.timestamp) for block_el in self.__chain]]
 				f.write(json.dumps(saveable_chain))
 				f.write('\n')
-				saveable_transactions = [tx.__dict__ for tx in self.__open_transactions]
-				f.write(json.dumps(saveable_transactions))			
+				saveable_tx = [tx.__dict__ for tx in self.__open_transactions]
+				f.write(json.dumps(saveable_tx))		
 		except IOError:
 			print('Saving failed!')
 
@@ -117,8 +114,11 @@ class Blockchain:
 
 
 	# add transaction on the blockchain
-	def add_transaction(self, recipient, sender, amount=1.0):
-		transaction = Transaction(sender, recipient, amount)			
+	def add_transaction(self, recipient, sender, signature, amount=1.0):
+		if self.hosting_node == None:
+			return False
+
+		transaction = Transaction(sender, recipient, signature, amount)
 		if Verification.verify_transaction(transaction, self.get_balance):
 			self.__open_transactions.append(transaction)
 			self.save_data()
@@ -127,16 +127,23 @@ class Blockchain:
 		return False
 
 	# mine block and get rewarded
-	def mine_block(self):	
-		last_block = self.chain[-1]
+	def mine_block(self):
+		if self.hosting_node == None:
+			return False
+		
+		last_block = self.__chain[-1]
 		hashed_block = hash_block(last_block)
 		proof = self.proof_of_work()
-		reward_transaction = Transaction('MINING', self.hosting_node, MINING_REWARD)
+		reward_transaction = Transaction('MINING', self.hosting_node, '', MINING_REWARD)
 		
-		copied_transactions = self.__open_transactions[:]
+		copied_transactions = self.__open_transactions[:]		
+		for tx in block.transactions:
+			if not Wallet.verify_transaction(tx):
+				return False
 		copied_transactions.append(reward_transaction)
-		block = Block(len(self.chain), hashed_block, copied_transactions, proof)	
-		self.chain.append(block)
+
+		block = Block(len(self.chain), hashed_block, copied_transactions, proof)
+		self.__chain.append(block)
 		self.__open_transactions = []
 		self.save_data()
 		return True
