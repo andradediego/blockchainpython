@@ -24,8 +24,10 @@ class Wallet:
 				private_key = keys[1]
 				self.public_key = public_key
 				self.private_key = private_key
+			return True
 		except (IOError, IndexError):
 			print('Loding wallet failed')
+			return False
 
 	def save_keys(self):		
 		try:
@@ -33,11 +35,14 @@ class Wallet:
 				with open(WALLET_FILE, mode='w') as f:
 					f.write(self.public_key)
 					f.write('\n')
-					f.write(self.private_key)			
+					f.write(self.private_key)
+				return True			
 			else:
 				print('Create a wallet first')
+				return False
 		except (IOError, IndexError):
 				print('Saving wallet failed')
+				return False
 
 
 	def generate_keys(self):
@@ -60,5 +65,5 @@ class Wallet:
 	def verify_transaction(transaction):
 		public_key = RSA.importKey(binascii.unhexlify(transaction.sender))
 		verifier = PKCS1_v1_5.new(public_key)
-		h = SHA256.new((str(transaction.sender + str(transaction.recipient) + str(transaction.amount))).encode('utf8'))
+		h = SHA256.new((str(transaction.sender) + str(transaction.recipient) + str(transaction.amount)).encode('utf8'))
 		return verifier.verify(h, binascii.unhexlify(transaction.signature))

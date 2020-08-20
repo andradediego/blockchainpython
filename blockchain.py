@@ -44,7 +44,7 @@ class Blockchain:
 					Block(
 						block['index'],
 						block['previous_hash'],
-						[Transaction(tx['sender'], tx['recipient'], tx['recipient'], tx['amount'])
+						[Transaction(tx['sender'], tx['recipient'], tx['signature'], tx['amount'])
 							for tx in block['transactions']],
 						block['proof'],
 						block['timestamp']
@@ -53,7 +53,7 @@ class Blockchain:
 							
 				open_transactions = json.loads(file_content[1])
 				self.__open_transactions = [
-					Transaction(tx['sender'], tx['recipient'], tx['recipient'], tx['amount'])
+					Transaction(tx['sender'], tx['recipient'], tx['signature'], tx['amount'])
 					for tx in open_transactions
 				]
 		except (IOError, IndexError):
@@ -86,6 +86,9 @@ class Blockchain:
 
 	# return the actual balance
 	def get_balance(self):
+		if self.hosting_node == None:
+			return None
+
 		# get the values that a participant sent
 		tx_sender = [[tx.amount for tx in block.transactions if tx.sender == self.hosting_node] for block in self.chain]
 		# get the values that a participant sent which is open
@@ -129,7 +132,7 @@ class Blockchain:
 	# mine block and get rewarded
 	def mine_block(self):
 		if self.hosting_node == None:
-			return False
+			return None
 		
 		last_block = self.__chain[-1]
 		hashed_block = hash_block(last_block)
@@ -139,11 +142,12 @@ class Blockchain:
 		copied_transactions = self.__open_transactions[:]		
 		for tx in copied_transactions:
 			if not Wallet.verify_transaction(tx):
-				return False
+				return None
 		copied_transactions.append(reward_transaction)
 
-		block = Block(len(self.chain), hashed_block, copied_transactions, proof)
+		block = Block(len(self.__chain), hashed_block,
+                      copied_transactions, proof)
 		self.__chain.append(block)
 		self.__open_transactions = []
 		self.save_data()
-		return True
+		return block
