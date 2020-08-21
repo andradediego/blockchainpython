@@ -1,4 +1,4 @@
-from utility.hash_util import has_string_256, hash_block
+from utility.hash_util import hash_string_256, hash_block
 from wallet import Wallet
 
 class Verification:
@@ -24,7 +24,7 @@ class Verification:
 	# verify if the user have sufficient coins
 	def verify_transaction(transaction, get_balance, check_funds=True):
 		if check_funds:
-			sender_balance = get_balance()
+			sender_balance = get_balance(transaction.sender)
 			return sender_balance >= transaction.amount and Wallet.verify_transaction(transaction)
 		else:
 			return Wallet.verify_transaction(transaction)
@@ -34,5 +34,5 @@ class Verification:
 		guess = (
 			str([tx.to_ordered_dict() for tx in transactions]) + str(last_hash) + str(proof)
 		).encode()
-		guess_hash = has_string_256(guess)
+		guess_hash = hash_string_256(guess)
 		return guess_hash[0:2] == '00'
